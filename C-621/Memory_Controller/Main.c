@@ -48,9 +48,14 @@ int main(int argc, const char *argv[])
         ++cycles;
     }
 
+    uint64_t num_of_bank_conflicts = controller->bank_conflicts;
+    uint64_t num_of_bank_opportunities = controller->bank_opportunities;
+
     free(controller->bank_status);
     free(controller->waiting_queue);
     free(controller->pending_queue);
     free(controller);
     printf("End Execution Time: ""%"PRIu64"\n", cycles);
+    printf("Number of Bank Conflicts: ""%"PRIu64"\n", num_of_bank_conflicts);
+    //printf("Number of Bank Opportunities: ""%"PRIu64"\n", num_of_bank_opportunities);
 }

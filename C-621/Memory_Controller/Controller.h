@@ -4,6 +4,9 @@
 #include "Bank.h"
 #include "Queue.h"
 
+//#define FCFS
+#define OoO
+
 // Bank
 extern void initBank(Bank *bank);
 
@@ -40,6 +43,10 @@ typedef struct Controller
     unsigned bank_shift;
     uint64_t bank_mask;
 
+    // Totals the Number of Bank Conflicts that Occur
+    uint64_t bank_conflicts;
+    uint64_t bank_opportunities;
+
 }Controller;
 
 Controller *initController()
@@ -57,6 +64,9 @@ Controller *initController()
 
     controller->bank_shift = log2(BLOCK_SIZE);
     controller->bank_mask = (uint64_t)NUM_OF_BANKS - (uint64_t)1;
+
+    controller->bank_conflicts = 0;
+    controller->bank_opportunities = 0;
 
     return controller;
 }
@@ -118,26 +128,67 @@ void tick(Controller *controller)
     if (controller->waiting_queue->size)
     {
         // Implementation One - FCFS
-        Node *first = controller->waiting_queue->first;
-        int target_bank_id = first->bank_id;
+        #ifdef FCFS
+            Node *first = controller->waiting_queue->first;
+            int target_bank_id = first->bank_id;
 
-        if ((controller->bank_status)[target_bank_id].next_free <= controller->cur_clk)
-        {
-            first->begin_exe = controller->cur_clk;
-            if (first->req_type == READ)
+            if ((controller->bank_status)[target_bank_id].next_free <= controller->cur_clk)
             {
-                first->end_exe = first->begin_exe + (uint64_t)nclks_read;
-            }
-            else if (first->req_type == WRITE)
-            {
-                first->end_exe = first->begin_exe + (uint64_t)nclks_write;
-            }
-            // The target bank is no longer free until this request completes.
-            (controller->bank_status)[target_bank_id].next_free = first->end_exe;
+                first->begin_exe = controller->cur_clk;
+                if (first->req_type == READ)
+                {
+                    first->end_exe = first->begin_exe + (uint64_t)nclks_read;
+                }
+                else if (first->req_type == WRITE)
+                {
+                    first->end_exe = first->begin_exe + (uint64_t)nclks_write;
+                }
+                // The target bank is no longer free until this request completes.
+                (controller->bank_status)[target_bank_id].next_free = first->end_exe;
 
-            migrateToQueue(controller->pending_queue, first);
-            deleteNode(controller->waiting_queue, first);
-        }
+                migrateToQueue(controller->pending_queue, first);
+                deleteNode(controller->waiting_queue, first);
+            }
+            else if((controller->bank_status)[target_bank_id].next_free == controller->cur_clk + 1)
+            {
+                controller->bank_conflicts += 1;
+            }
+        #endif
+        // Implementation Two - OoO
+        #ifdef OoO
+            for ( int bank = 0; bank < NUM_OF_BANKS; bank++) 
+            {
+                if ((controller->bank_status)[bank].next_free <= controller->cur_clk)
+                {
+                    Node *first = controller->waiting_queue->first;
+                    while(first != NULL && first->bank_id != bank)
+                    {
+                        first = first->next;
+                    }
+                    if(first != NULL)
+                    {
+                        first->begin_exe = controller->cur_clk;
+                        if (first->req_type == READ)
+                        {
+                            first->end_exe = first->begin_exe + (uint64_t)nclks_read;
+                        }
+                        else if (first->req_type == WRITE)
+                        {
+                            first->end_exe = first->begin_exe + (uint64_t)nclks_write;
+                        }
+                        // The target bank is no longer free until this request completes.
+                        (controller->bank_status)[bank].next_free = first->end_exe;
+
+                        migrateToQueue(controller->pending_queue, first);
+                        deleteNode(controller->waiting_queue, first);
+                    }
+                }
+                else if((controller->bank_status)[bank].next_free == controller->cur_clk + 1)
+                {
+                    controller->bank_conflicts += 1;
+                }
+            }
+        #endif
     }
 }
 
