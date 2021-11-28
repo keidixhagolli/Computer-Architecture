@@ -3,10 +3,11 @@
 const unsigned instShiftAmt = 2; // Number of bits to shift a PC by
 
 // You can play around with these settings.
-const unsigned localPredictorSize = 2048;
+const unsigned localPredictorSize = 16384;
 const unsigned localCounterBits = 2;
+
 const unsigned localHistoryTableSize = 2048; 
-const unsigned globalPredictorSize = 8192 ;
+const unsigned globalPredictorSize = 8192;
 const unsigned globalCounterBits = 2;
 const unsigned choicePredictorSize = 8192; // Keep this the same as globalPredictorSize.
 const unsigned choiceCounterBits = 2;
